@@ -19,19 +19,24 @@ export function DeleteFlowModal({ record, isOpen, onClose, onConfirm }: DeleteFl
   const [step, setStep] = useState<Step>('confirm')
   const [selectedReason, setSelectedReason] = useState<DeletionReason | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   function handleClose() {
     setStep('confirm')
     setSelectedReason(null)
+    setError(null)
     onClose()
   }
 
   async function handleSubmit() {
     if (!selectedReason) return
     setIsSubmitting(true)
+    setError(null)
     try {
       await onConfirm(selectedReason)
       handleClose()
+    } catch {
+      setError('Failed to delete this entry. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
@@ -82,6 +87,7 @@ export function DeleteFlowModal({ record, isOpen, onClose, onConfirm }: DeleteFl
               </label>
             ))}
           </div>
+          {error && <p className="text-sm text-status-critical">{error}</p>}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setStep('confirm')}>
               Back

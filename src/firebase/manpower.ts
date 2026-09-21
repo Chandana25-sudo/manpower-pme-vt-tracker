@@ -1,6 +1,7 @@
 import {
   addDoc,
   collection,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -15,13 +16,12 @@ import type {
   ComplianceEvent,
   ComplianceType,
   CompletionRecord,
-  DashboardStats,
   ManpowerRecord,
   NewManpowerInput,
   RecordComplianceInput,
   DeletionReason,
 } from '@/types/manpower'
-import { defaultNextDueDate, isSameMonthAndYear, isSameYear, todayISO } from '@/utils/dateUtils'
+import { defaultNextDueDate, todayISO } from '@/utils/dateUtils'
 
 const MANPOWER_COLLECTION = 'manpower'
 const COMPLIANCE_COLLECTION = 'complianceEvents'
@@ -123,6 +123,20 @@ export async function deactivateManpower(uan: string, reason: DeletionReason): P
   })
 }
 
+export async function reactivateManpower(uan: string): Promise<void> {
+  await updateDoc(manpowerDoc(uan), {
+    status: 'active',
+    deactivationReason: deleteField(),
+    deactivatedAt: deleteField(),
+    updatedAt: todayISO(),
+  })
+}
+
+export async function listDeactivatedManpower(): Promise<ManpowerRecord[]> {
+  const all = await listAllManpower()
+  return all.filter((r) => r.status !== 'active')
+}
+
 export async function listPendingPme(): Promise<ManpowerRecord[]> {
   const active = await listActiveManpower()
   const today = todayISO()
@@ -131,24 +145,12 @@ export async function listPendingPme(): Promise<ManpowerRecord[]> {
     .sort((a, b) => (b.nextPmeDueDate ?? '').localeCompare(a.nextPmeDueDate ?? ''))
 }
 
-export async function getDashboardStats(): Promise<DashboardStats> {
-  const [active, pmeEvents, vtEvents, pending] = await Promise.all([
-    listActiveManpower(),
-    getEventsByType('PME'),
-    getEventsByType('VT'),
-    listPendingPme(),
-  ])
-
-  const now = new Date()
-
-  return {
-    activeCount: active.length,
-    pendingPmeCount: pending.length,
-    pmeCompletedThisMonth: pmeEvents.filter((e) => isSameMonthAndYear(e.completedDate, now)).length,
-    pmeCompletedThisYear: pmeEvents.filter((e) => isSameYear(e.completedDate, now)).length,
-    vtCompletedThisMonth: vtEvents.filter((e) => isSameMonthAndYear(e.completedDate, now)).length,
-    vtCompletedThisYear: vtEvents.filter((e) => isSameYear(e.completedDate, now)).length,
-  }
+export async function listPendingVt(): Promise<ManpowerRecord[]> {
+  const active = await listActiveManpower()
+  const today = todayISO()
+  return active
+    .filter((r) => !r.nextVtDueDate || r.nextVtDueDate <= today)
+    .sort((a, b) => (b.nextVtDueDate ?? '').localeCompare(a.nextVtDueDate ?? ''))
 }
 
 async function getEventsByType(type: ComplianceType): Promise<ComplianceEvent[]> {

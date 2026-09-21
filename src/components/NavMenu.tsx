@@ -7,6 +7,7 @@ const links = [
   { to: '/search', label: 'Search UMAN' },
   { to: '/new', label: 'New Entry' },
   { to: '/pending', label: 'PME Pending' },
+  { to: '/vt-pending', label: 'VT Pending' },
 ]
 
 export function NavMenu() {

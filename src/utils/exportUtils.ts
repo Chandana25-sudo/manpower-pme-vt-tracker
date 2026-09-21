@@ -13,6 +13,8 @@ function toRow(record: ManpowerRecord) {
     'Next PME Due': formatDisplayDate(record.nextPmeDueDate),
     'Last VT Date': formatDisplayDate(record.lastVtDate),
     'Next VT Due': formatDisplayDate(record.nextVtDueDate),
+    'Deactivation Reason': record.deactivationReason ?? '—',
+    'Deactivated Date': formatDisplayDate(record.deactivatedAt),
   }
 }
 
@@ -39,6 +41,14 @@ export function exportManpowerToExcel(records: ManpowerRecord[], fileName = 'man
 
 export function exportPendingPmeToExcel(records: ManpowerRecord[], fileName = 'pme-pending.xlsx') {
   downloadWorkbook(records.map(toRow), 'PME Pending', fileName)
+}
+
+export function exportPendingVtToExcel(records: ManpowerRecord[], fileName = 'vt-pending.xlsx') {
+  downloadWorkbook(records.map(toRow), 'VT Pending', fileName)
+}
+
+export function exportDeactivatedToExcel(records: ManpowerRecord[], fileName = 'deactivated.xlsx') {
+  downloadWorkbook(records.map(toRow), 'Deactivated', fileName)
 }
 
 export function exportCompletionsToExcel(records: CompletionRecord[], fileName = 'completions.xlsx') {

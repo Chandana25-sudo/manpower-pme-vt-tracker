@@ -4,8 +4,8 @@ import { Layout } from '@/components/Layout'
 import { StatCard } from '@/components/StatCard'
 import { DataTable } from '@/components/DataTable'
 import { ExportButton } from '@/components/ExportButton'
-import { listActiveManpower, getCompletionsForType } from '@/firebase/manpower'
-import { exportCompletionsToExcel, exportManpowerToExcel } from '@/utils/exportUtils'
+import { listActiveManpower, listDeactivatedManpower, getCompletionsForType } from '@/firebase/manpower'
+import { exportCompletionsToExcel, exportDeactivatedToExcel, exportManpowerToExcel } from '@/utils/exportUtils'
 import {
   calculateAge,
   countByMonth,
@@ -17,7 +17,14 @@ import {
 } from '@/utils/dateUtils'
 import type { CompletionRecord, ComplianceType, ManpowerRecord } from '@/types/manpower'
 
-type SelectionKind = 'active' | 'pmeMonth' | 'pmeYear' | 'vtMonth' | 'vtYear' | 'monthCell'
+type SelectionKind =
+  | 'active'
+  | 'deactivated'
+  | 'pmeMonth'
+  | 'pmeYear'
+  | 'vtMonth'
+  | 'vtYear'
+  | 'monthCell'
 
 interface Selection {
   kind: SelectionKind
@@ -29,23 +36,28 @@ interface Selection {
 export function DashboardPage() {
   const navigate = useNavigate()
   const [active, setActive] = useState<ManpowerRecord[] | null>(null)
+  const [deactivated, setDeactivated] = useState<ManpowerRecord[] | null>(null)
   const [pmeCompletions, setPmeCompletions] = useState<CompletionRecord[] | null>(null)
   const [vtCompletions, setVtCompletions] = useState<CompletionRecord[] | null>(null)
-  const [pendingCount, setPendingCount] = useState<number | null>(null)
+  const [pendingPmeCount, setPendingPmeCount] = useState<number | null>(null)
+  const [pendingVtCount, setPendingVtCount] = useState<number | null>(null)
   const [selection, setSelection] = useState<Selection | null>(null)
 
   useEffect(() => {
-    void Promise.all([listActiveManpower(), getCompletionsForType('PME'), getCompletionsForType('VT')]).then(
-      ([activeList, pme, vt]) => {
-        setActive(activeList)
-        setPmeCompletions(pme)
-        setVtCompletions(vt)
-        const today = new Date().toISOString().slice(0, 10)
-        setPendingCount(
-          activeList.filter((r) => !r.nextPmeDueDate || r.nextPmeDueDate <= today).length,
-        )
-      },
-    )
+    void Promise.all([
+      listActiveManpower(),
+      listDeactivatedManpower(),
+      getCompletionsForType('PME'),
+      getCompletionsForType('VT'),
+    ]).then(([activeList, deactivatedList, pme, vt]) => {
+      setActive(activeList)
+      setDeactivated(deactivatedList)
+      setPmeCompletions(pme)
+      setVtCompletions(vt)
+      const today = new Date().toISOString().slice(0, 10)
+      setPendingPmeCount(activeList.filter((r) => !r.nextPmeDueDate || r.nextPmeDueDate <= today).length)
+      setPendingVtCount(activeList.filter((r) => !r.nextVtDueDate || r.nextVtDueDate <= today).length)
+    })
   }, [])
 
   const now = useMemo(() => new Date(), [])
@@ -63,7 +75,15 @@ export function DashboardPage() {
     }))
   }, [pmeCompletions, vtCompletions, year])
 
-  if (!active || !pmeCompletions || !vtCompletions || pendingCount === null || !monthlyRows) {
+  if (
+    !active ||
+    !deactivated ||
+    !pmeCompletions ||
+    !vtCompletions ||
+    pendingPmeCount === null ||
+    pendingVtCount === null ||
+    !monthlyRows
+  ) {
     return (
       <Layout>
         <p className="text-ink-secondary">Loading stats…</p>
@@ -76,7 +96,7 @@ export function DashboardPage() {
   const vtThisMonth = vtCompletions.filter((c) => isSameMonthAndYear(c.completedDate, now))
   const vtThisYear = vtCompletions.filter((c) => isSameYear(c.completedDate, now))
 
-  function selectionRows(): CompletionRecord[] {
+  function completionRows(): CompletionRecord[] {
     if (!selection) return []
     switch (selection.kind) {
       case 'pmeMonth':
@@ -108,11 +128,14 @@ export function DashboardPage() {
           onClick={() => setSelection({ kind: 'active', title: 'Active manpower' })}
         />
         <StatCard
-          label="PME pending"
-          value={pendingCount}
-          tone="critical"
-          onClick={() => navigate('/pending')}
+          label="Deleted"
+          value={deactivated.length}
+          tone="neutral"
+          selected={selection?.kind === 'deactivated'}
+          onClick={() => setSelection({ kind: 'deactivated', title: 'Deleted manpower' })}
         />
+        <StatCard label="PME pending" value={pendingPmeCount} tone="critical" onClick={() => navigate('/pending')} />
+        <StatCard label="VT pending" value={pendingVtCount} tone="critical" onClick={() => navigate('/vt-pending')} />
         <StatCard
           label="PMEs done this month"
           value={pmeThisMonth.length}
@@ -161,14 +184,35 @@ export function DashboardPage() {
         </DrillDown>
       )}
 
-      {selection && selection.kind !== 'active' && (
+      {selection && selection.kind === 'deactivated' && (
         <DrillDown
           title={selection.title}
           onClose={() => setSelection(null)}
-          onExport={() => exportCompletionsToExcel(selectionRows(), 'completions.xlsx')}
+          onExport={() => exportDeactivatedToExcel(deactivated, 'deleted-manpower.xlsx')}
         >
           <DataTable
-            rows={selectionRows()}
+            rows={deactivated}
+            rowKey={(r) => r.uan}
+            emptyMessage="No deleted entries"
+            columns={[
+              { header: 'UMAN', render: (r) => r.uan },
+              { header: 'Name', render: (r) => r.name },
+              { header: 'Status', render: (r) => r.status },
+              { header: 'Reason', render: (r) => r.deactivationReason ?? '—' },
+              { header: 'Deleted on', render: (r) => formatDisplayDate(r.deactivatedAt) },
+            ]}
+          />
+        </DrillDown>
+      )}
+
+      {selection && selection.kind !== 'active' && selection.kind !== 'deactivated' && (
+        <DrillDown
+          title={selection.title}
+          onClose={() => setSelection(null)}
+          onExport={() => exportCompletionsToExcel(completionRows(), 'completions.xlsx')}
+        >
+          <DataTable
+            rows={completionRows()}
             rowKey={(c, i) => `${c.uan}-${c.completedDate}-${i}`}
             emptyMessage="No completions in this period"
             columns={[

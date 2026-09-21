@@ -6,6 +6,7 @@ import { DashboardPage } from '@/pages/DashboardPage'
 import { SearchPage } from '@/pages/SearchPage'
 import { NewManpowerPage } from '@/pages/NewManpowerPage'
 import { PendingPmePage } from '@/pages/PendingPmePage'
+import { PendingVtPage } from '@/pages/PendingVtPage'
 
 export function App() {
   return (
@@ -18,6 +19,7 @@ export function App() {
             <Route path="/search" element={<SearchPage />} />
             <Route path="/new" element={<NewManpowerPage />} />
             <Route path="/pending" element={<PendingPmePage />} />
+            <Route path="/vt-pending" element={<PendingVtPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

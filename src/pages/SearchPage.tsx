@@ -6,10 +6,12 @@ import { Badge } from '@/components/Badge'
 import { DataTable } from '@/components/DataTable'
 import { RecordComplianceModal } from '@/components/RecordComplianceModal'
 import { DeleteFlowModal } from '@/components/DeleteFlowModal'
+import { Toast } from '@/components/Toast'
 import {
   deactivateManpower,
   getComplianceHistory,
   getManpowerByUan,
+  reactivateManpower,
   recordCompliance,
 } from '@/firebase/manpower'
 import { calculateAge, formatDisplayDate, isOverdue } from '@/utils/dateUtils'
@@ -22,6 +24,7 @@ export function SearchPage() {
   const [vtHistory, setVtHistory] = useState<ComplianceEvent[]>([])
   const [notFound, setNotFound] = useState(false)
   const [activeModal, setActiveModal] = useState<ComplianceType | 'delete' | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
 
   async function loadRecord(uan: string) {
     const result = await getManpowerByUan(uan)
@@ -53,8 +56,18 @@ export function SearchPage() {
 
   async function handleDelete(reason: DeletionReason) {
     if (!record) return
+    const name = record.name
     await deactivateManpower(record.uan, reason)
     await loadRecord(record.uan)
+    setToast(`${name} removed from active roster (${reason})`)
+  }
+
+  async function handleRetrieve() {
+    if (!record) return
+    const name = record.name
+    await reactivateManpower(record.uan)
+    await loadRecord(record.uan)
+    setToast(`${name} restored to active roster`)
   }
 
   return (
@@ -95,9 +108,13 @@ export function SearchPage() {
               <Button onClick={() => setActiveModal('VT')} disabled={record.status !== 'active'}>
                 Update VT
               </Button>
-              {record.status === 'active' && (
+              {record.status === 'active' ? (
                 <Button variant="danger" onClick={() => setActiveModal('delete')}>
                   Delete
+                </Button>
+              ) : (
+                <Button variant="secondary" onClick={handleRetrieve}>
+                  Retrieve
                 </Button>
               )}
             </div>
@@ -134,6 +151,8 @@ export function SearchPage() {
           />
         </>
       )}
+
+      {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
     </Layout>
   )
 }

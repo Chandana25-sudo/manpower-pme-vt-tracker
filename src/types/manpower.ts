@@ -45,15 +45,6 @@ export interface RecordComplianceInput {
   notes?: string
 }
 
-export interface DashboardStats {
-  pmeCompletedThisMonth: number
-  pmeCompletedThisYear: number
-  vtCompletedThisMonth: number
-  vtCompletedThisYear: number
-  activeCount: number
-  pendingPmeCount: number
-}
-
 export interface CompletionRecord {
   uan: string
   name: string

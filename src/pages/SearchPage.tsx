@@ -25,6 +25,7 @@ export function SearchPage() {
   const [notFound, setNotFound] = useState(false)
   const [activeModal, setActiveModal] = useState<ComplianceType | 'delete' | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [isRetrieving, setIsRetrieving] = useState(false)
 
   async function loadRecord(uan: string) {
     const result = await getManpowerByUan(uan)
@@ -65,9 +66,14 @@ export function SearchPage() {
   async function handleRetrieve() {
     if (!record) return
     const name = record.name
-    await reactivateManpower(record.uan)
-    await loadRecord(record.uan)
-    setToast(`${name} restored to active roster`)
+    setIsRetrieving(true)
+    try {
+      await reactivateManpower(record.uan)
+      await loadRecord(record.uan)
+      setToast(`${name} restored to active roster`)
+    } finally {
+      setIsRetrieving(false)
+    }
   }
 
   return (
@@ -113,8 +119,8 @@ export function SearchPage() {
                   Delete
                 </Button>
               ) : (
-                <Button variant="secondary" onClick={handleRetrieve}>
-                  Retrieve
+                <Button variant="secondary" onClick={handleRetrieve} disabled={isRetrieving}>
+                  {isRetrieving ? 'Retrieving…' : 'Retrieve'}
                 </Button>
               )}
             </div>
